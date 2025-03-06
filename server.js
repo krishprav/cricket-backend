@@ -10,6 +10,7 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const subscribers = {};
+const matchCache = {}; // In-memory cache
 
 // Serve frontend static files (for combined hosting)
 app.use(express.static(path.join(__dirname, '../frontend/.next')));
@@ -17,6 +18,13 @@ app.use(express.static(path.join(__dirname, '../frontend/public')));
 
 // Function to execute Python scraper
 function getMatchData(matchId, callback) {
+  const cacheKey = matchId || 'list';
+  if (matchCache[cacheKey]) {
+    console.log(`Serving from cache for matchId: ${cacheKey}`);
+    callback(matchCache[cacheKey]);
+    return;
+  }
+
   const pythonProcess = spawn('python', ['scraper.py', matchId]);
   let data = '';
   let error = '';
@@ -37,7 +45,13 @@ function getMatchData(matchId, callback) {
     }
     try {
       const result = JSON.parse(data);
-      callback(result);
+      if (result) {
+        matchCache[cacheKey] = result; // Cache the result
+        callback(result);
+      } else {
+        console.error(`No data returned for matchId: ${matchId}`);
+        callback(null);
+      }
     } catch (e) {
       console.error(`Error parsing scraper output for match ${matchId}: ${e.message}`);
       callback(null);
@@ -45,14 +59,30 @@ function getMatchData(matchId, callback) {
   });
 }
 
-// HTTP endpoint for match list or specific match data
+// HTTP endpoint for match list or specific match data (query-based)
 app.get('/matches', (req, res) => {
   const matchId = req.query.matchId || 'list';
   getMatchData(matchId, (data) => {
     if (data) {
-      res.json(data);
+      if (matchId !== 'list' && (!data || Object.keys(data).length === 0)) {
+        res.status(404).json({ error: 'Match not found' });
+      } else {
+        res.json(data);
+      }
     } else {
       res.status(500).json({ error: 'Failed to fetch match data' });
+    }
+  });
+});
+
+// Optional: Add path-based route for better API design
+app.get('/matches/:matchId', (req, res) => {
+  const matchId = req.params.matchId;
+  getMatchData(matchId, (data) => {
+    if (data) {
+      res.json(data);
+    } else {
+      res.status(404).json({ error: 'Match not found' });
     }
   });
 });
@@ -103,6 +133,11 @@ setInterval(() => {
     }
   }
 }, 30000);
+
+// Add a health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Backend is running' });
+});
 
 server.listen(process.env.PORT || 8080, () => {
   console.log(`Backend server running on port ${process.env.PORT || 8080}`);
