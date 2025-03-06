@@ -16,8 +16,9 @@ const matchCache = {}; // In-memory cache
 // CORS configuration
 const allowedOrigins = [
   'http://localhost:3000', // Local development
-  'https://cricket-scoreboard-fe.vercel.app' // Vercel production URL
+  'https://cricket-scoreboard-fe.vercel.app', // Vercel production URL
   'https://cricket-gray.vercel.app' // Vercel production URL
+  // Add preview URLs if needed (e.g., https://cricket-scoreboard-fe-git-<branch>-<username>.vercel.app)
 ];
 
 app.use(cors({
