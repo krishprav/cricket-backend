@@ -3,6 +3,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const { spawn } = require('child_process');
 const path = require('path');
+const cors = require('cors'); // Import cors middleware
 require('dotenv').config();
 
 const app = express();
@@ -11,6 +12,28 @@ const wss = new WebSocket.Server({ server });
 
 const subscribers = {};
 const matchCache = {}; // In-memory cache
+
+// CORS configuration
+const allowedOrigins = [
+  'http://localhost:3000', // Local development
+  'https://cricket-scoreboard-fe.vercel.app' // Vercel production URL
+  // Add preview URLs if needed (e.g., https://cricket-scoreboard-fe-git-<branch>-<username>.vercel.app)
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (e.g., curl or Postman) and requests from allowed origins
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'OPTIONS'], // Allow common HTTP methods
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allow common headers
+  credentials: true, // Allow cookies or credentials if needed
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+}));
 
 // Serve frontend static files (for combined hosting)
 app.use(express.static(path.join(__dirname, '../frontend/.next')));
@@ -87,8 +110,14 @@ app.get('/matches/:matchId', (req, res) => {
   });
 });
 
-// WebSocket handling
-wss.on('connection', (ws) => {
+// WebSocket handling with CORS
+wss.on('connection', (ws, req) => {
+  const origin = req.headers.origin;
+  if (origin && !allowedOrigins.includes(origin)) {
+    ws.close(1008, 'Origin not allowed by CORS');
+    return;
+  }
+
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
@@ -96,7 +125,7 @@ wss.on('connection', (ws) => {
         const matchId = data.matchId;
         if (!subscribers[matchId]) subscribers[matchId] = [];
         subscribers[matchId].push(ws);
-        console.log(`Client subscribed to match ${matchId}`);
+        console.log(`Client subscribed to match ${matchId} from origin ${origin}`);
       }
     } catch (e) {
       console.error('Error parsing WebSocket message:', e.message);
