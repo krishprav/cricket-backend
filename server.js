@@ -3,6 +3,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const { spawn } = require('child_process');
 const path = require('path');
+const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
@@ -10,6 +11,13 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const subscribers = {};
+
+// Enable CORS for all routes
+app.use(cors({
+  origin: ['https://cricket-gray.vercel.app', 'http://localhost:3000'],
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 
 // Serve frontend static files (for combined hosting)
 app.use(express.static(path.join(__dirname, '../frontend/.next')));
