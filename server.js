@@ -65,6 +65,18 @@ app.get('/matches', (req, res) => {
   });
 });
 
+app.get('/matches/:matchId', (req, res) => {
+  const matchId = req.params.matchId;
+  getMatchData(matchId, (data) => {
+    if (data) {
+      res.json(data);
+    } else {
+      res.status(500).json({ error: 'Failed to fetch match data' });
+    }
+  });
+});
+
+
 // WebSocket handling
 wss.on('connection', (ws) => {
   ws.on('message', (message) => {
