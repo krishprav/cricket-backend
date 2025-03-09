@@ -76,7 +76,6 @@ app.get('/matches/:matchId', (req, res) => {
   });
 });
 
-
 // WebSocket handling
 wss.on('connection', (ws) => {
   ws.on('message', (message) => {
