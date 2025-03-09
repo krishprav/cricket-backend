@@ -56,9 +56,24 @@ app.use(cors({
 // Add JSON parsing middleware
 app.use(express.json());
 
-// Serve frontend static files (for combined hosting)
-app.use(express.static(path.join(__dirname, '../frontend/.next')));
-app.use(express.static(path.join(__dirname, '../frontend/public')));
+// Check if frontend paths exist before serving static files
+const nextBuildPath = path.join(__dirname, '../frontend/.next');
+const publicPath = path.join(__dirname, '../frontend/public');
+
+// Serve frontend static files only if directories exist
+if (fs.existsSync(nextBuildPath)) {
+  console.log('Serving Next.js build files from:', nextBuildPath);
+  app.use(express.static(nextBuildPath));
+} else {
+  console.log('Next.js build directory not found:', nextBuildPath);
+}
+
+if (fs.existsSync(publicPath)) {
+  console.log('Serving public files from:', publicPath);
+  app.use(express.static(publicPath));
+} else {
+  console.log('Public directory not found:', publicPath);
+}
 
 // Function to execute Python scraper with caching
 function getMatchData(matchId, command = null, forceFresh = false, callback) {
@@ -498,9 +513,80 @@ app.post('/api/refresh/:type/:id', (req, res) => {
   });
 });
 
-// Catch-all route for SPA frontend
+// API status route
+app.get('/api/status', (req, res) => {
+  res.json({
+    status: 'online',
+    time: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
+// Modified catch-all route for SPA frontend with error handling
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/.next/server/pages/index.html'));
+  const indexPath = path.join(__dirname, '../frontend/.next/server/pages/index.html');
+  
+  // Check if the file exists before sending it
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    // If the frontend file doesn't exist, return a simple API status page
+    res.send(`
+      <html>
+        <head>
+          <title>Cricket API Server</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+            h1 { color: #333; }
+            .api { background: #f4f4f4; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+            pre { background: #eee; padding: 10px; border-radius: 5px; overflow-x: auto; }
+          </style>
+        </head>
+        <body>
+          <h1>Cricket API Server</h1>
+          <p>The API server is running successfully. The frontend is not currently available at this location.</p>
+          <h2>Available API Endpoints:</h2>
+          <div class="api">GET /api/status - Check API status</div>
+          <div class="api">GET /api/matches - Get all matches</div>
+          <div class="api">GET /api/matches/:matchId - Get specific match data</div>
+          <div class="api">GET /api/matches/:matchId/commentary - Get match commentary</div>
+          <div class="api">GET /api/tournament/:tournamentId/points - Get tournament points table</div>
+          <div class="api">GET /api/player/:playerId - Get player statistics</div>
+          <div class="api">POST /api/refresh/:type/:id - Force refresh data (types: match, commentary, points, player, list)</div>
+          <h2>WebSocket API:</h2>
+          <p>Available at <code>ws://${req.headers.host}</code></p>
+          <pre>
+// Example WebSocket usage:
+const ws = new WebSocket('ws://${req.headers.host}');
+
+// Subscribe to match updates
+ws.send(JSON.stringify({
+  action: 'subscribe',
+  matchId: '12345'
+}));
+
+// Subscribe to commentary
+ws.send(JSON.stringify({
+  action: 'subscribe_commentary',
+  matchId: '12345'
+}));
+
+// Subscribe to points table
+ws.send(JSON.stringify({
+  action: 'subscribe_points',
+  tournamentId: '67890'
+}));
+
+// Listen for updates
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log(data.type, data.data);
+};
+          </pre>
+        </body>
+      </html>
+    `);
+  }
 });
 
 // Start the server
