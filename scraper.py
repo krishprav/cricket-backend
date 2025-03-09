@@ -2,6 +2,7 @@ import sys
 import requests
 from bs4 import BeautifulSoup
 import json
+import time
 
 def get_live_matches():
     url = "https://www.cricbuzz.com/cricket-match/live-scores"
