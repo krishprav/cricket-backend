@@ -18,6 +18,9 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
     "rate-limit": "^0.1.1",
+    "cheerio": "^1.0.0",
+    "morgan": "^1.10.0",
+    "@tensorflow/tfjs-node": "^4.10.0",
     "ws": "^8.18.1"
   }
 }
